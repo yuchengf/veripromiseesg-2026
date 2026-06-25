@@ -6,6 +6,7 @@ margins and the author-contact table exactly match the organiser's required form
 Run:  python report/build_report.py
 Out:  report/TEAM_10505_ESG永續承諾驗證競賽.docx   (then export to PDF in Word)
 """
+import copy
 from pathlib import Path
 from docx import Document
 from docx.shared import Pt, Cm
@@ -211,7 +212,11 @@ def write_para(p, text, size=12, bold=False, hang=False):
 
 
 def new_para_after(anchor):
+    """Insert an empty paragraph after `anchor`, carrying the template's body
+    paragraph formatting (indent + justification) so every body line matches."""
     el = OxmlElement('w:p')
+    if BODY_PPR is not None:
+        el.append(copy.deepcopy(BODY_PPR))
     anchor._p.addnext(el)
     return Paragraph(el, anchor._parent)
 
@@ -232,6 +237,17 @@ def set_cell(cell, text):
 
 # ───────────────────────── build ─────────────────────────
 doc = Document(str(TEMPLATE))
+
+# capture the template's body-paragraph formatting (indent + justified) so that
+# every inserted paragraph matches the reused [內文] placeholder exactly
+BODY_PPR = None
+for _p in doc.paragraphs:
+    if _p.text.strip() == "[內文]":
+        _e = _p._p.find(qn('w:pPr'))
+        if _e is not None:
+            BODY_PPR = copy.deepcopy(_e)
+        break
+
 HEAD_KEYS = list(SECTIONS.keys()) + ["柒、"]
 
 current = None
