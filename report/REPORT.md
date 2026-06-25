@@ -5,7 +5,7 @@
 
 > 隊員 / 學號:〔請填寫〕
 > 指導教授 / 業師:〔姓名、學校或公司、科系或職稱、信箱 — 若無可刪除本欄〕
-> 可重現程式碼(GitHub):〔https://github.com/&lt;your-account&gt;/veripromiseesg-2026〕
+> 可重現程式碼(GitHub):〔https://github.com/yuchengf/veripromiseesg-2026〕
 
 ---
 
@@ -164,7 +164,7 @@ RoBERTa 上限為 512 token;我們發現:
 
 ## 9. 可重現程式碼
 
-- **GitHub Repository:** 〔https://github.com/&lt;your-account&gt;/veripromiseesg-2026〕(公開,可直接 clone 執行)
+- **GitHub Repository:** 〔https://github.com/yuchengf/veripromiseesg-2026〕(公開,可直接 clone 執行)
 - **主要檔案:**
   - `esg_main.py` — 模型、級聯頭、損失、訓練 / k-fold / 推論主程式。
   - `gen_rt_more.py` — 以 retrain 模型產生提交、kNN-LDL 融合。
