@@ -1,0 +1,28 @@
+# ===== Competition / external data (licensed — DO NOT upload) =====
+final_data/
+retrain_data/
+final_data_ml/
+external_data/
+
+# ===== Model weights & caches (large / derivable) =====
+runs/
+agent_cache/
+*.pt
+*.ckpt
+*.npz
+*.npy
+*.bin
+
+# ===== Submissions: keep only the final reference submission =====
+official_sub/*
+!official_sub/aidea_joint_w2.0.csv
+
+# ===== Python =====
+__pycache__/
+*.pyc
+.ruff_cache/
+.ipynb_checkpoints/
+
+# ===== Logs / temp =====
+*.log
+nohup.out
