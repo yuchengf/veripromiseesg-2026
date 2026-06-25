@@ -7,6 +7,7 @@ Run:  python report/build_report.py
 Out:  report/TEAM_10505_ESG永續承諾驗證競賽.docx   (then export to PDF in Word)
 """
 import copy
+import os
 from pathlib import Path
 from docx import Document
 from docx.shared import Pt, Cm
@@ -15,7 +16,12 @@ from docx.oxml.ns import qn
 from docx.oxml import OxmlElement
 from docx.text.paragraph import Paragraph
 
-CN_FONT, EN_FONT = "標楷體", "Times New Roman"
+# Chinese body font. The spec asks for 標楷體 (DFKai-SB, built into Windows).
+# On macOS that font is absent, so we default to the Ministry of Education's free
+# official 楷書 ——「教育部標準楷書」(EduKai, works on Mac + Windows). Override with
+# REPORT_CN_FONT="標楷體" when building/exporting the PDF on a Windows machine.
+CN_FONT = os.environ.get("REPORT_CN_FONT", "教育部標準楷書")
+EN_FONT = "Times New Roman"
 HERE = Path(__file__).resolve().parent
 TEMPLATE = next((p for p in [HERE / "report_template.docx",
                              HERE.parent / "reference_report" / "ESG 永續承諾驗證競賽_報告空白範本.docx"]
@@ -296,5 +302,19 @@ for tb in doc.tables:
                 p.paragraph_format.line_spacing_rule = WD_LINE_SPACING.MULTIPLE
                 p.paragraph_format.line_spacing = 1.15
 
+# enforce the spec's fonts on EVERY run: CJK → CN_FONT, Latin/digits → EN_FONT.
+# The template baked 標楷體 into headings, team block, notes and table cells (incl.
+# their ascii/hAnsi), so retarget them all — otherwise stray English/numbers in
+# those lines also substitute on a Mac without 標楷體.
+def _retarget_fonts(root):
+    for rf in root.iter(qn('w:rFonts')):
+        rf.set(qn('w:ascii'), EN_FONT)
+        rf.set(qn('w:hAnsi'), EN_FONT)
+        rf.set(qn('w:eastAsia'), CN_FONT)
+        if rf.get(qn('w:cs')) is not None:
+            rf.set(qn('w:cs'), CN_FONT)
+_retarget_fonts(doc.element.body)
+_retarget_fonts(doc.styles.element)
+
 doc.save(str(OUT))
-print("Saved:", OUT.name)
+print(f"Saved: {OUT.name}  (CJK font = {CN_FONT})")
