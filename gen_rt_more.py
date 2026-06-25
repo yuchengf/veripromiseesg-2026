@@ -1,7 +1,7 @@
 """Generate additional kNN-enhanced AIdea submissions (9-way no-FC1M, 6-way).
 Same fusion pipeline as gen_rt_knn.py, but caches fold predictions + embeddings."""
 import sys, os
-os.chdir("/home/yucheng/Desktop/ESG")
+os.chdir(os.path.dirname(os.path.abspath(__file__)))
 sys.argv = ["esg_main", "--mode", "gen_submissions", "--data_dir", "retrain_data"]
 
 from esg_main import (

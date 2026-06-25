@@ -3,7 +3,7 @@ sources (T1/T3@384, T2/T4@512) + kNN + clarity. Backward dependency: downstream 
 probs can correct the T1/T2 gate. Structural -> should transfer.
 Usage: python gen_joint_aidea.py [wgate]   (default 2.0)"""
 import sys, os, math
-os.chdir("/home/yucheng/Desktop/ESG")
+os.chdir(os.path.dirname(os.path.abspath(__file__)))
 WGATE = float(sys.argv[1]) if len(sys.argv) > 1 else 2.0
 sys.argv = ["esg_main", "--mode", "gen_submissions", "--data_dir", "retrain_data"]
 from esg_main import load_dataframes, Config, compute_knn_ldl_probs, knn_fuse_probs, LABELS

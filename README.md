@@ -56,26 +56,109 @@ official_sub/aidea_joint_w2.0.csv   # the final submitted file (reference)
 - Ubuntu Linux, **Python 3.13**, single **NVIDIA RTX 5090 (32 GB)**.
 - `pip install -r requirements.txt` (install PyTorch matching your CUDA — tested cu128).
 
-## Reproduce the final submission
+## Usage
+
+All scripts `os.chdir` to their own location on startup, so you can run them from
+anywhere after placing the data — no path editing needed.
+
+### 1. Training entry point — `esg_main.py`
+
+Every model is trained through one CLI. The flags below are exactly the recipe used
+for the final ensemble:
 
 ```bash
-# 0) place competition data in final_data/ and retrain_data/ (see note above)
-
-# 1) train the RoBERTa cascade ensemble on retrain_data (2000)
-bash overnight_retrain.sh      # RT_FC1R etc. @ max_length 384
-bash train_rt_512.sh           # RT_FC1R512 etc. @ max_length 512
-
-# 2) train the T3 clarity head and cache its test probabilities
-python clarity_head.py
-python clarity_aidea.py        # → agent_cache/clarity_test_probs.npz
-
-# 3) cache per-task test probabilities (+ kNN-LDL via Qwen3-Embedding-0.6B)
-python gen_rt_more.py          # @384 → agent_cache/rt_test_probs/
-python gen_rt512.py            # @512 → agent_cache/rt512_test_probs/
-
-# 4) FINAL submission via joint/structured decoding (wgate=2.0)
-python gen_joint_aidea.py 2.0  # → official_sub/aidea_joint_w2.0.csv  (Private 0.6432854)
+python esg_main.py \
+  --mode kfold --approach A1 \
+  --backbone hfl/chinese-roberta-wwm-ext-large \
+  --data_dir retrain_data --kfold 5 \
+  --per_task_loss --augment_rare --deep_cascade --t3_nc_weight 3.0 \
+  --max_length 384 \
+  --rdrop_alpha 0.5 --swa_start_epoch 7 \
+  --seed 42 --run_dir runs/RT_FC1R_s0 --batch_size 8
 ```
+
+Key arguments:
+
+| Flag | Meaning |
+|---|---|
+| `--mode` | `kfold` (K-fold train + cache OOF probs — used here) · `train` (single split) · `predict --checkpoint <pt>` (inference only) · `test` (self-tests) · `geneval` (LLM) |
+| `--approach A1` | BERT encoder → CLS → **CascadeHeadV2** (T1→T2, [T1+T2]→T3, [T1]→T4). Our architecture. (`A`=4 independent heads, `B/B_lora`=causal LLM, `C`=frozen sentence-embedding + MLP.) |
+| `--backbone` | HF model id (we use `hfl/chinese-roberta-wwm-ext-large`). |
+| `--data_dir` | `final_data` (1601 train, for local-valid model selection) or `retrain_data` (2000 train, for the final submission). |
+| `--kfold 5` | 5-fold CV; writes `runs/<run_dir>/fold{1..5}/best.pt` + cached OOF predictions. |
+| `--max_length` | `384` or `512` (per-task harvest — T1/T3 favor 384, T2/T4 favor 512; see report §伍). |
+| `--per_task_loss` | T1/T2 = CE, T3 = Distribution-Balanced (+`--t3_nc_weight 3.0`), T4 = ordinal. |
+| `--deep_cascade` `--augment_rare` | deeper cascade coupling · rare-class oversampling. |
+| `--seed` `--run_dir` `--batch_size` | reproducibility · output dir · batch size (8 for R-Drop, 16 otherwise). |
+
+**Recipe variants** (the only difference is the trailing flags):
+
+| Recipe | Extra flags | batch |
+|---|---|---|
+| `FC1` (base) | *(none)* | 16 |
+| **`FC1R`** ← used in final | `--rdrop_alpha 0.5 --swa_start_epoch 7` | 8 |
+| `FC1S` | `--sharp_recl_weight 0.10` | 16 |
+| `FC1M` | `--mr2_weight 0.05` | 16 |
+
+### 2. Train the whole ensemble
+
+Each script trains its recipe set across **3 seeds (42/123/456) × 5 folds**:
+
+```bash
+bash overnight_retrain.sh   # RT_FC1 / RT_FC1R / RT_FC1S @384  → runs/RT_*
+bash train_rt_512.sh        # RT_*512 @512                     → runs/RT_*512
+```
+
+The final submission only needs `RT_FC1R*` (gives T1/T3) and `RT_FC1R512*` (gives T2/T4).
+
+### 3. Quick start — train one model and score it locally
+
+```bash
+python esg_main.py --mode kfold --approach A1 --backbone hfl/chinese-roberta-wwm-ext-large \
+  --data_dir final_data --kfold 5 --per_task_loss --augment_rare --deep_cascade \
+  --t3_nc_weight 3.0 --max_length 384 --rdrop_alpha 0.5 --swa_start_epoch 7 \
+  --seed 42 --run_dir runs/FC1R_s0 --batch_size 8
+
+python eval_single_run.py FC1R_s0   # weighted macro-F1 on valid 399 (official-aligned) + caches probs
+```
+
+### 4. Inference — cache per-task test probabilities
+
+Reads the trained checkpoints, predicts the 2000-row test set, fuses **kNN-LDL**
+(`Qwen/Qwen3-Embedding-0.6B`, k=5) and caches everything:
+
+```bash
+python gen_rt_more.py   # @384 models → agent_cache/rt_test_probs/   (+ kNN, + combo CSVs)
+python gen_rt512.py     # @512 models → agent_cache/rt512_test_probs/
+```
+
+### 5. T3 clarity head (Clear / Not Clear / Misleading overlay)
+
+```bash
+python clarity_head.py   # train on non-N/A rows + report Not-Clear recall on valid
+python clarity_aidea.py  # predict the test set → agent_cache/clarity_test_probs.npz
+```
+
+### 6. Final submission — joint / structured decoding
+
+Combines the per-task sources (T1/T3 @384, T2/T4 @512) + kNN + clarity, then **jointly
+decodes** the cascade so a confident downstream N/A can correct the upstream gate:
+
+```bash
+python gen_joint_aidea.py 2.0   # wgate=2.0 → official_sub/aidea_joint_w2.0.csv  (Private LB 0.6432854)
+```
+
+### End-to-end
+
+Run **2 → 4 → 5 → 6** in order (step 3 is per-model diagnostics only).
+`gen_joint_aidea.py 2.0` reproduces the exact submitted file.
+
+### Output layout (all git-ignored)
+
+- `runs/<name>/fold{1..5}/best.pt` — model checkpoints.
+- `agent_cache/{valid_probs,rt_test_probs,rt512_test_probs}/*.npz` — cached probabilities.
+- `agent_cache/clarity_test_probs.npz`, `agent_cache/qwen3_embs_retrain.npz` — clarity probs, kNN embeddings.
+- `official_sub/*.csv` — submission files (only the final `aidea_joint_w2.0.csv` is tracked).
 
 ## Generative-AI & external-resource disclosure
 

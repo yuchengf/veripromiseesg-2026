@@ -10,7 +10,7 @@ better. Balanced softmax (Ren 2020) = train with CE(logits + log prior).
 Usage: python clarity_head.py [--smoke]
 """
 import os, sys
-os.chdir("/home/yucheng/Desktop/ESG")
+os.chdir(os.path.dirname(os.path.abspath(__file__)))
 SMOKE = "--smoke" in sys.argv
 AUG = "--aug" in sys.argv
 LS = 0.1 if "--ls" in sys.argv else 0.0

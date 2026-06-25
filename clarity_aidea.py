@@ -6,7 +6,7 @@ Outputs candidate submission(s) + a report of what changed (esp. Misleading
 injections, which are high-risk: only 2 training Misleading).
 """
 import os, sys
-os.chdir("/home/yucheng/Desktop/ESG")
+os.chdir(os.path.dirname(os.path.abspath(__file__)))
 import numpy as np, pandas as pd, torch, torch.nn as nn, torch.nn.functional as F
 from sklearn.model_selection import StratifiedKFold
 from transformers import AutoModel, AutoTokenizer

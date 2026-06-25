@@ -3,7 +3,7 @@ retrain_data=2000). Mirrors gen_rt_more.py but for RT_*512 dirs, and emits every
 combo (3/6/9/12-way) + kNN, plus a clarity-overlay variant for 3-way and 12-way.
 Run after train_rt_512.sh finishes all 12 RT@512 models."""
 import sys, os, math
-os.chdir("/home/yucheng/Desktop/ESG")
+os.chdir(os.path.dirname(os.path.abspath(__file__)))
 sys.argv = ["esg_main", "--mode", "gen_submissions", "--data_dir", "retrain_data"]
 
 from esg_main import (

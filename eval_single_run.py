@@ -3,7 +3,7 @@ Usage: python eval_single_run.py RUN_NAME
 Caches fold probs in agent_cache/valid_probs/ (same format as pertask_valid_eval).
 """
 import os, sys
-os.chdir("/home/yucheng/Desktop/ESG")
+os.chdir(os.path.dirname(os.path.abspath(__file__)))
 RUN = sys.argv[1]
 sys.argv = ["esg_main", "--mode", "gen_submissions", "--data_dir", "final_data"]
 
